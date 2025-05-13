@@ -39,3 +39,70 @@ impl AppState {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::domain::session::User;
+
+    #[test]
+    fn test_create_room() {
+        let state = AppState::new();
+        let room_id = state.create_room();
+
+        assert!(state.rooms.lock().unwrap().contains_key(&room_id));
+    }
+
+    #[test]
+    fn test_add_user_to_room() {
+        let state = AppState::new();
+        let room_id = state.create_room();
+        let user = User::new();
+        let result = state.add_user_to_room(room_id, user.clone());
+
+        assert!(result);
+        assert!(
+            state
+                .rooms
+                .lock()
+                .unwrap()
+                .get(&room_id)
+                .unwrap()
+                .users
+                .contains(&user.id)
+        );
+    }
+
+    #[test]
+    fn test_remove_user_from_room() {
+        let state = AppState::new();
+        let room_id = state.create_room();
+        let user = User::new();
+        state.add_user_to_room(room_id, user.clone());
+
+        let result = state.remove_user_from_room(room_id, user.id);
+
+        assert!(result);
+        assert!(
+            !state
+                .rooms
+                .lock()
+                .unwrap()
+                .get(&room_id)
+                .unwrap()
+                .users
+                .contains(&user.id)
+        );
+    }
+
+    #[test]
+    fn test_remove_user_from_nonexistent_room() {
+        let state = AppState::new();
+        let room_id = Uuid::new_v4();
+        let user_id = Uuid::new_v4();
+
+        let result = state.remove_user_from_room(room_id, user_id);
+
+        assert!(!result);
+    }
+}

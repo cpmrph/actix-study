@@ -9,7 +9,7 @@ pub struct RoomResponse {
     room_id: Uuid,
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Serialize)]
 pub struct ModifyUserRequest {
     user_id: Uuid,
 }
@@ -46,5 +46,106 @@ pub async fn leave_room_handler(
         HttpResponse::Ok().finish()
     } else {
         HttpResponse::NotFound().finish()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::application::session::AppState;
+    use actix_web::{App, body::to_bytes, dev::Service, http::StatusCode, test, web};
+
+    #[actix_rt::test]
+    async fn test_create_room_handler() {
+        let app_state = web::Data::new(AppState::new());
+        let app = test::init_service(
+            App::new()
+                .app_data(app_state.clone())
+                .route("/rooms", web::post().to(create_room_handler)),
+        )
+        .await;
+
+        let req = test::TestRequest::post().uri("/rooms").to_request();
+        let resp = app.call(req).await.unwrap();
+
+        assert_eq!(resp.status(), StatusCode::OK);
+
+        let body = to_bytes(resp.into_body()).await.unwrap();
+        let room_response: RoomResponse = serde_json::from_slice(&body).unwrap();
+
+        assert!(
+            app_state
+                .rooms
+                .lock()
+                .unwrap()
+                .contains_key(&room_response.room_id)
+        );
+    }
+
+    #[actix_rt::test]
+    async fn test_join_room_handler() {
+        let app_state = web::Data::new(AppState::new());
+        let room_id = app_state.create_room();
+        let user = User::new();
+
+        let app = test::init_service(
+            App::new()
+                .app_data(app_state.clone())
+                .route("/rooms/{room_id}/join", web::post().to(join_room_handler)),
+        )
+        .await;
+
+        let req = test::TestRequest::post()
+            .uri(&format!("/rooms/{}/join", room_id))
+            .set_json(&ModifyUserRequest { user_id: user.id })
+            .to_request();
+
+        let resp = app.call(req).await.unwrap();
+
+        assert_eq!(resp.status(), StatusCode::OK);
+        assert!(
+            app_state
+                .rooms
+                .lock()
+                .unwrap()
+                .get(&room_id)
+                .unwrap()
+                .users
+                .contains(&user.id)
+        );
+    }
+
+    #[actix_rt::test]
+    async fn test_leave_room_handler() {
+        let app_state = web::Data::new(AppState::new());
+        let room_id = app_state.create_room();
+        let user = User::new();
+        app_state.add_user_to_room(room_id, user.clone());
+
+        let app = test::init_service(
+            App::new()
+                .app_data(app_state.clone())
+                .route("/rooms/{room_id}/leave", web::post().to(leave_room_handler)),
+        )
+        .await;
+
+        let req = test::TestRequest::post()
+            .uri(&format!("/rooms/{}/leave", room_id))
+            .set_json(&ModifyUserRequest { user_id: user.id })
+            .to_request();
+
+        let resp = app.call(req).await.unwrap();
+
+        assert_eq!(resp.status(), StatusCode::OK);
+        assert!(
+            !app_state
+                .rooms
+                .lock()
+                .unwrap()
+                .get(&room_id)
+                .unwrap()
+                .users
+                .contains(&user.id)
+        );
     }
 }
