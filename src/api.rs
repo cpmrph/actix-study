@@ -1,11 +1,11 @@
-use actix_web::{Error as ActixError, HttpResponse, ResponseError};
+use actix_web::{HttpResponse, ResponseError};
 use core::fmt;
-use serde::{Deserialize, Serialize, Serializer, ser::SerializeStruct};
+use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
-// #[derive(Debug, Error, Serialize)]
-// #[serde(rename_all = "SCREAMING_SNAKE_CASE", tag = "error_code")]
-#[derive(Debug, Error)]
+// #[derive(Debug, Error)]
+#[derive(Debug, Error, Serialize)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE", tag = "error_code")]
 pub enum CustomError {
     #[error("Session creation failed")]
     SessionCreationError,
@@ -16,8 +16,8 @@ pub enum CustomError {
     #[error("Session join failed: {0}")]
     SessionJoinError(JoinSessionErrorData),
 
-    #[error("Actix-Web error: {0}")]
-    ActixWebError(String),
+    #[error("Actix-Web error")]
+    ActixWebError,
 
     #[error("Logic error")]
     LogicError,
@@ -39,12 +39,6 @@ pub struct CreateSessionRequest {
 #[derive(Debug, Deserialize, Serialize, PartialEq)]
 pub struct JoinSessionRequest {
     pub user_name: String,
-}
-
-impl From<ActixError> for CustomError {
-    fn from(err: ActixError) -> Self {
-        CustomError::ActixWebError(format!("{:?}", err))
-    }
 }
 
 // Implement ResponseError trait for CustomError
@@ -92,35 +86,6 @@ pub struct JoinSessionSuccessData {
     pub joined_at: String,
 }
 
-impl Serialize for CustomError {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        let mut state = serializer.serialize_struct("CustomError", 2)?;
-        match self {
-            CustomError::SessionCreationError => {
-                state.serialize_field("error_code", "SESSION_CREATION_ERROR")?;
-            }
-            CustomError::SessionCreationError2 => {
-                state.serialize_field("error_code", "SESSION_CREATION_ERROR2")?;
-            }
-            CustomError::SessionJoinError(data) => {
-                state.serialize_field("error_code", "SESSION_JOIN_ERROR")?;
-                state.serialize_field("detail", &data.detail)?;
-            }
-            CustomError::ActixWebError(detail) => {
-                state.serialize_field("error_code", "ACTIX_WEB_ERROR")?;
-                state.serialize_field("detail", detail)?;
-            }
-            CustomError::LogicError => {
-                state.serialize_field("error_code", "LOGIC_ERROR")?;
-            }
-        }
-        state.end()
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -153,9 +118,9 @@ mod tests {
         let expected_logic_json = r#"{"error_code":"LOGIC_ERROR"}"#;
         assert_eq!(logic_json, expected_logic_json);
 
-        let actix_error = CustomError::ActixWebError("Some Actix error".to_string());
+        let actix_error = CustomError::ActixWebError;
         let actix_json = serde_json::to_string(&actix_error).unwrap();
-        let expected_actix_json = r#"{"error_code":"ACTIX_WEB_ERROR","detail":"Some Actix error"}"#;
+        let expected_actix_json = r#"{"error_code":"ACTIX_WEB_ERROR"}"#;
         assert_eq!(actix_json, expected_actix_json);
     }
 
@@ -200,10 +165,10 @@ mod tests {
         let expected_join_json = r#"{"result":"FAILURE","data":{"error_code":"SESSION_JOIN_ERROR","detail":"User not found"}}"#;
         assert_eq!(join_json, expected_join_json);
 
-        let actix_error = CustomError::ActixWebError("Network failure".to_string());
+        let actix_error = CustomError::ActixWebError;
         let actix_response = SessionResponse::FAILURE(actix_error);
         let actix_json = serde_json::to_string(&actix_response).unwrap();
-        let expected_actix_json = r#"{"result":"FAILURE","data":{"error_code":"ACTIX_WEB_ERROR","detail":"Network failure"}}"#;
+        let expected_actix_json = r#"{"result":"FAILURE","data":{"error_code":"ACTIX_WEB_ERROR"}}"#;
         assert_eq!(actix_json, expected_actix_json);
     }
 }

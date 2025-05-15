@@ -8,9 +8,7 @@ use actix_web::{App, Error as ActixError, HttpResponse, HttpServer, web};
 async fn session_handler(
     create: actix_web::Result<web::Json<Request>>,
 ) -> Result<HttpResponse, ActixError> {
-    let query = create.map_err(|err| {
-        CustomError::ActixWebError(format!("Failed to parse query parameter: {:?}", err))
-    })?;
+    let query = create.map_err(|_err| CustomError::ActixWebError)?;
     let result = process_session(query.into_inner());
     let response = convert_to_session_response(result)?;
 
