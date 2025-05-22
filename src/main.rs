@@ -45,18 +45,19 @@ async fn index(data: web::Data<AppState>, config: web::Data<AppConfig>) -> impl 
     ))
 }
 
-async fn monitor_state(state: Arc<Mutex<HashMap<String, i32>>>, config: AppConfig) {
-    loop {
-        {
-            let map = state.lock().unwrap();
-            if let Some(counter) = map.get("counter") {
-                println!("Current Counter: {}", counter);
-            } else {
-                println!("Counter not found");
+async fn watch(data: web::Data<AppState>, _: web::Data<AppConfig>) -> impl Responder {
+    for _ in 0..10 {
+        let map = data.map.lock().unwrap();
+        if map.contains_key("counter") {
+            let counter = map.get("counter").unwrap();
+            if counter > &2 {
+                return HttpResponse::Ok().body(format!("Finished by counter exceeded."));
             }
+            sleep(Duration::from_secs(1)).await;
         }
-        sleep(config.sleep_duration()).await;
     }
+
+    HttpResponse::Ok().body(format!("Finished. Counter not exceeded."))
 }
 
 #[actix_web::main]
@@ -68,18 +69,101 @@ async fn main() -> std::io::Result<()> {
         map: Arc::new(Mutex::new(HashMap::new())),
     };
 
-    // Clone the state and pass configuration to the monitor_state
-    let state_clone = state.map.clone();
-    tokio::spawn(monitor_state(state_clone, config.clone()));
-
     // Start the HTTP server
     HttpServer::new(move || {
         App::new()
             .app_data(web::Data::new(state.clone()))
             .app_data(web::Data::new(config.clone())) // Pass config
             .route("/", web::get().to(index))
+            .route("/watch", web::get().to(watch))
     })
     .bind("127.0.0.1:8080")?
     .run()
     .await
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use actix_web::{App, test};
+    use std::collections::HashMap;
+    use std::sync::{Arc, Mutex};
+
+    #[actix_rt::test]
+    async fn test_watch_response_when_counter_exceeds() {
+        // State setup: Initialize counter to 3 so watch will finish immediately
+        let state = Arc::new(Mutex::new(HashMap::new()));
+        {
+            let mut map = state.lock().unwrap();
+            map.insert("counter".to_string(), 3);
+        }
+
+        // Mock configuration
+        let config = web::Data::new(AppConfig {
+            application: Application {
+                user_name: "TestUser".to_string(),
+                sleep_duration_secs: 1,
+            },
+        });
+
+        // Create app with the /watch endpoint
+        let app = test::init_service(
+            App::new()
+                .app_data(web::Data::new(AppState { map: state.clone() }))
+                .app_data(config.clone())
+                .route("/watch", web::get().to(watch)),
+        )
+        .await;
+
+        // Send request to /watch
+        let req = test::TestRequest::get().uri("/watch").to_request();
+        let resp = test::call_service(&app, req).await;
+
+        // Assert that the response is as expected
+        assert!(resp.status().is_success());
+        let body_bytes = test::read_body(resp).await;
+        assert_eq!(
+            std::str::from_utf8(&body_bytes).unwrap(),
+            "Finished by counter exceeded."
+        );
+    }
+
+    #[actix_rt::test]
+    async fn test_watch_response_when_counter_not_exceeded() {
+        // State setup: Initialize counter to 1
+        let state = Arc::new(Mutex::new(HashMap::new()));
+        {
+            let mut map = state.lock().unwrap();
+            map.insert("counter".to_string(), 1);
+        }
+
+        // Mock configuration
+        let config = web::Data::new(AppConfig {
+            application: Application {
+                user_name: "TestUser".to_string(),
+                sleep_duration_secs: 1,
+            },
+        });
+
+        // Create app with the /watch endpoint
+        let app = test::init_service(
+            App::new()
+                .app_data(web::Data::new(AppState { map: state.clone() }))
+                .app_data(config.clone())
+                .route("/watch", web::get().to(watch)),
+        )
+        .await;
+
+        // Send request to /watch
+        let req = test::TestRequest::get().uri("/watch").to_request();
+        let resp = test::call_service(&app, req).await;
+
+        // Assert that the response is as expected
+        assert!(resp.status().is_success());
+        let body_bytes = test::read_body(resp).await;
+        assert_eq!(
+            std::str::from_utf8(&body_bytes).unwrap(),
+            "Finished. Counter not exceeded."
+        );
+    }
 }
