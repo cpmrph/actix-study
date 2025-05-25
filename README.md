@@ -8,11 +8,14 @@ cargo run
 
 ```bash
 # Create room
-curl -X POST 127.0.0.1:8080/rooms
+curl -X POST -H "Content-Type: application/json" -d '{"user_id":"5c2d0243-128b-42ab-8427-2a58ed4bcf8f"}' 127.0.0.1:8080/room
 
 # Add user to room
-curl -X POST -H "Content-Type: application/json" -d '{"user_id":"1ab6bed8-13da-4bb2-a9f2-e9db6ffabba3"}' 127.0.0.1:8080/rooms/4d33bdb3-f4c6-4fc6-aff3-79ee0b177503/join
+curl -X POST -H "Content-Type: application/json" -d '{"user_id":"facd39d3-733b-42e4-9200-17f2dd9e68f1"}' 127.0.0.1:8080/room/b5e943f3-0bb5-4203-92f5-9a219e76be45/join
+
+# Get room
+curl 127.0.0.1:8080/room/b5e943f3-0bb5-4203-92f5-9a219e76be45
 
 # Remove user from room
-curl -X POST -H "Content-Type: application/json" -d '{"user_id":"1ab6bed8-13da-4bb2-a9f2-e9db6ffabba3"}' 127.0.0.1:8080/rooms/4d33bdb3-f4c6-4fc6-aff3-79ee0b177503/leave
+curl -X POST -H "Content-Type: application/json" -d '{"user_id":"facd39d3-733b-42e4-9200-17f2dd9e68f1"}' 127.0.0.1:8080/room/b5e943f3-0bb5-4203-92f5-9a219e76be45/leave
 ```
