@@ -1,4 +1,6 @@
-use crate::api::dto::room::{CreateRoomDTO, JoinRoomDTO, LeaveRoomDTO, RoomDTO};
+use crate::api::dto::room::{
+    CreateRoomDTO, EventDTO, JoinRoomDTO, LeaveRoomDTO, RoomDTO, SubscribeRoomDTO,
+};
 use crate::domain::error::ApiError;
 use crate::domain::services::room::RoomService;
 use actix_web::{HttpResponse, Result, web};
@@ -40,4 +42,15 @@ pub async fn leave_room_handler(
         .leave(params.into_inner(), post_data.user_id)
         .await?;
     Ok(HttpResponse::NoContent().finish())
+}
+
+pub async fn subscribe_room_handler(
+    room_service: web::Data<dyn RoomService>,
+    params: web::Path<Uuid>,
+    post_data: web::Json<SubscribeRoomDTO>,
+) -> Result<web::Json<Vec<EventDTO>>, ApiError> {
+    let events = room_service
+        .subscribe(params.into_inner(), post_data.version)
+        .await?;
+    Ok(web::Json(events.into_iter().map(EventDTO::from).collect()))
 }

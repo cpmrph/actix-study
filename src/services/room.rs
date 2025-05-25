@@ -4,7 +4,7 @@ use async_trait::async_trait;
 use uuid::Uuid;
 
 use crate::domain::error::CommonError;
-use crate::domain::models::room::{CreateRoom, Room};
+use crate::domain::models::room::{CreateRoom, Event, Room};
 use crate::domain::repositories::room::RoomRepository;
 use crate::domain::services::room::RoomService;
 
@@ -45,6 +45,13 @@ impl RoomService for RoomServiceImpl {
     async fn leave(&self, room_id: Uuid, user_id: Uuid) -> Result<(), CommonError> {
         self.repository
             .leave(room_id, user_id)
+            .await
+            .map_err(|e| -> CommonError { e.into() })
+    }
+
+    async fn subscribe(&self, room_id: Uuid, version: u32) -> Result<Vec<Event>, CommonError> {
+        self.repository
+            .subscribe(room_id, version)
             .await
             .map_err(|e| -> CommonError { e.into() })
     }

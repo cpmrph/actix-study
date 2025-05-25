@@ -1,4 +1,4 @@
-use crate::domain::models::room::{CreateRoom, Room};
+use crate::domain::models::room::{CreateRoom, Event, Room};
 use async_trait::async_trait;
 use uuid::Uuid;
 
@@ -10,4 +10,5 @@ pub trait RoomRepository: Send + Sync {
     async fn get(&self, room_id: Uuid) -> RepositoryResult<Room>;
     async fn join(&self, room_id: Uuid, user_id: Uuid) -> RepositoryResult<()>;
     async fn leave(&self, room_id: Uuid, user_id: Uuid) -> RepositoryResult<()>;
+    async fn subscribe(&self, room_id: Uuid, version: u32) -> RepositoryResult<Vec<Event>>;
 }

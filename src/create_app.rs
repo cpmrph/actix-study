@@ -1,5 +1,6 @@
 use crate::api::controllers::room_handler::{
     create_room_handler, get_room_handler, join_room_handler, leave_room_handler,
+    subscribe_room_handler,
 };
 use crate::container::Container;
 use actix_web::Error;
@@ -30,6 +31,7 @@ pub fn create_app(
                 .route("", web::post().to(create_room_handler))
                 .route("/{id}", web::get().to(get_room_handler))
                 .route("/{id}/join", web::post().to(join_room_handler))
-                .route("/{id}/leave", web::post().to(leave_room_handler)),
+                .route("/{id}/leave", web::post().to(leave_room_handler))
+                .route("/{id}/subscribe", web::post().to(subscribe_room_handler)),
         )
 }

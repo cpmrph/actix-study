@@ -2,7 +2,7 @@ use async_trait::async_trait;
 use uuid::Uuid;
 
 use crate::domain::error::CommonError;
-use crate::domain::models::room::{CreateRoom, Room};
+use crate::domain::models::room::{CreateRoom, Event, Room};
 
 #[async_trait]
 pub trait RoomService: 'static + Sync + Send {
@@ -10,4 +10,5 @@ pub trait RoomService: 'static + Sync + Send {
     async fn get(&self, room_id: Uuid) -> Result<Room, CommonError>;
     async fn join(&self, room_id: Uuid, user_id: Uuid) -> Result<(), CommonError>;
     async fn leave(&self, room_id: Uuid, user_id: Uuid) -> Result<(), CommonError>;
+    async fn subscribe(&self, room_id: Uuid, version: u32) -> Result<Vec<Event>, CommonError>;
 }
